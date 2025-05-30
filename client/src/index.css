@@ -1,0 +1,233 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* ServiLocal Brand Colors - Psychology-based palette */
+  --background: 210 11% 98%; /* #F5F7FA - Light, clean background */
+  --foreground: 215 25% 15%; /* #1F2937 - Deep gray for text */
+  --muted: 210 11% 96%; /* #F1F5F9 - Subtle background */
+  --muted-foreground: 215 15% 45%; /* #64748B - Muted text */
+  --popover: 0 0% 100%; /* #FFFFFF - Pure white */
+  --popover-foreground: 215 25% 15%; /* #1F2937 - Text on popover */
+  --card: 0 0% 100%; /* #FFFFFF - Card background */
+  --card-foreground: 215 25% 15%; /* #1F2937 - Card text */
+  --border: 215 15% 88%; /* #E2E8F0 - Subtle borders */
+  --input: 215 15% 88%; /* #E2E8F0 - Input borders */
+  
+  /* Primary: Trust Blue - Professional and trustworthy */
+  --primary: 213 94% 68%; /* #3B82F6 - Main brand blue */
+  --primary-foreground: 0 0% 100%; /* #FFFFFF - White text on blue */
+  
+  /* Secondary: Growth Green - Local services and nature */
+  --secondary: 158 64% 52%; /* #10B981 - Success green */
+  --secondary-foreground: 0 0% 100%; /* #FFFFFF - White text on green */
+  
+  /* Accent: Action Orange - Call-to-action and warmth */
+  --accent: 43 96% 56%; /* #F59E0B - Warm orange for CTAs */
+  --accent-foreground: 0 0% 100%; /* #FFFFFF - White text on orange */
+  
+  /* Destructive: Error Red */
+  --destructive: 0 84% 60%; /* #EF4444 - Error red */
+  --destructive-foreground: 0 0% 100%; /* #FFFFFF - White text on red */
+  
+  --ring: 213 94% 68%; /* #3B82F6 - Focus ring color */
+  --radius: 0.75rem; /* 12px - Rounded corners */
+}
+
+.dark {
+  --background: 224 71% 4%; /* #0F172A - Dark slate */
+  --foreground: 213 31% 91%; /* #E2E8F0 - Light gray text */
+  --muted: 223 47% 11%; /* #1E293B - Dark muted */
+  --muted-foreground: 215 20% 65%; /* #94A3B8 - Muted text */
+  --popover: 224 71% 4%; /* #0F172A - Dark popover */
+  --popover-foreground: 213 31% 91%; /* #E2E8F0 - Light text */
+  --card: 224 71% 4%; /* #0F172A - Dark card */
+  --card-foreground: 213 31% 91%; /* #E2E8F0 - Light card text */
+  --border: 215 28% 17%; /* #334155 - Dark borders */
+  --input: 215 28% 17%; /* #334155 - Dark input borders */
+  
+  /* Maintain brand colors in dark mode with adjusted saturation */
+  --primary: 213 94% 68%; /* #3B82F6 - Keep brand blue */
+  --primary-foreground: 0 0% 100%; /* #FFFFFF - White text */
+  --secondary: 158 64% 52%; /* #10B981 - Keep brand green */
+  --secondary-foreground: 0 0% 100%; /* #FFFFFF - White text */
+  --accent: 43 96% 56%; /* #F59E0B - Keep brand orange */
+  --accent-foreground: 0 0% 100%; /* #FFFFFF - White text */
+  
+  --destructive: 0 63% 31%; /* #991B1B - Darker red */
+  --destructive-foreground: 213 31% 91%; /* #E2E8F0 - Light text */
+  --ring: 213 94% 68%; /* #3B82F6 - Focus ring */
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Custom scrollbar for webkit browsers */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-muted;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground;
+  }
+
+  /* Smooth scroll behavior */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Focus styles for accessibility */
+  .focus-visible {
+    @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background;
+  }
+
+  /* Grid pattern for hero background */
+  .bg-grid-slate-100 {
+    background-image: url("data:image/svg+xml,%3csvg width='40' height='40' xmlns='http://www.w3.org/2000/svg'%3e%3cdefs%3e%3cpattern id='grid' width='40' height='40' patternUnits='userSpaceOnUse'%3e%3cpath d='M 40 0 L 0 0 0 40' fill='none' stroke='%23f1f5f9' stroke-width='1'/%3e%3c/pattern%3e%3c/defs%3e%3crect width='100%25' height='100%25' fill='url(%23grid)'/%3e%3c/svg%3e");
+  }
+
+  /* Typography improvements */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.5s ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.3s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  /* Hover effects */
+  .hover-lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+
+  /* Service card specific styles */
+  .service-card {
+    transition: all 0.3s ease;
+  }
+
+  .service-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Button improvements */
+  .btn-primary {
+    @apply bg-primary hover:bg-primary/90 text-primary-foreground;
+    box-shadow: 0 1px 3px 0 rgba(59, 130, 246, 0.4);
+    transition: all 0.2s ease;
+  }
+
+  .btn-primary:hover {
+    box-shadow: 0 4px 12px 0 rgba(59, 130, 246, 0.4);
+    transform: translateY(-1px);
+  }
+
+  .btn-secondary {
+    @apply bg-secondary hover:bg-secondary/90 text-secondary-foreground;
+    box-shadow: 0 1px 3px 0 rgba(16, 185, 129, 0.4);
+    transition: all 0.2s ease;
+  }
+
+  .btn-secondary:hover {
+    box-shadow: 0 4px 12px 0 rgba(16, 185, 129, 0.4);
+    transform: translateY(-1px);
+  }
+
+  .btn-accent {
+    @apply bg-accent hover:bg-accent/90 text-accent-foreground;
+    box-shadow: 0 1px 3px 0 rgba(245, 158, 11, 0.4);
+    transition: all 0.2s ease;
+  }
+
+  .btn-accent:hover {
+    box-shadow: 0 4px 12px 0 rgba(245, 158, 11, 0.4);
+    transform: translateY(-1px);
+  }
+}
+
+/* Loading spinner */
+.loading-spinner {
+  @apply inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent motion-reduce:animate-[spin_1.5s_linear_infinite];
+}
+
+/* Custom utilities for psychology-based design */
+.trust-shadow {
+  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.1), 0 2px 4px -1px rgba(59, 130, 246, 0.06);
+}
+
+.growth-shadow {
+  box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.1), 0 2px 4px -1px rgba(16, 185, 129, 0.06);
+}
+
+.action-shadow {
+  box-shadow: 0 4px 6px -1px rgba(245, 158, 11, 0.1), 0 2px 4px -1px rgba(245, 158, 11, 0.06);
+}
