@@ -1,0 +1,89 @@
+
+name: ServiLocal CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_servilocal
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run TypeScript check
+      run: npx tsc --noEmit
+    
+    - name: Run ESLint
+      run: npx eslint . --ext .ts,.tsx --max-warnings 0
+    
+    - name: Setup test database
+      run: npm run db:push
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_servilocal
+    
+    - name: Run unit tests
+      run: npm run test
+      env:
+        NODE_ENV: test
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_servilocal
+        JWT_SECRET: test_jwt_secret_32_characters_long
+        SESSION_SECRET: test_session_secret_32_characters
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run npm audit
+      run: npm audit --audit-level high
+    
+    - name: Run Snyk security scan
+      uses: snyk/actions/node@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        args: --severity-threshold=high
+
+  deploy:
+    needs: [test, security-scan]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: Deploy to Replit
+      env:
+        REPLIT_TOKEN: ${{ secrets.REPLIT_TOKEN }}
+      run: |
+        echo "Deploying to Replit production..."
+        # Replit auto-deploy será configurado via webhook
+        curl -X POST "${{ secrets.REPLIT_DEPLOY_WEBHOOK }}" \
+          -H "Authorization: Bearer $REPLIT_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d '{"ref": "main", "commit": "${{ github.sha }}"}'

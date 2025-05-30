@@ -26,7 +26,26 @@ import {
   insertSupportTicketSchema,
 } from "@shared/schema";
 
+// Nuevas importaciones para funcionalidades avanzadas
+import { initializeMonitoring, logSecurityEvent, captureError } from './monitoring';
+import { 
+  generate2FASecret, 
+  verify2FAToken, 
+  enable2FA, 
+  validate2FALogin, 
+  disable2FA 
+} from './twoFactorAuth';
+import { 
+  createStripePayment, 
+  createPSEPayment, 
+  handlePaymentWebhook, 
+  generateInvoice 
+} from './payments';
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Initialize monitoring system
+  initializeMonitoring();
+  
   // Configure trust proxy for rate limiting
   app.set('trust proxy', 1);
   
@@ -243,18 +262,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Find user by username
       const user = await storage.getUserByUsername(validated.username);
       if (!user || !user.isActive) {
-        console.warn(`Failed login attempt for user: ${validated.username} from IP: ${req.ip}`);
+        logSecurityEvent('failed_login_attempt', {
+          username: validated.username,
+          ip: req.ip,
+          reason: 'user_not_found_or_inactive'
+        }, 'warning');
         return res.status(401).json({ message: 'Invalid credentials' });
       }
 
       // Verify password
       const validPassword = await comparePassword(validated.password, user.password);
       if (!validPassword) {
-        console.warn(`Invalid password for user: ${validated.username} from IP: ${req.ip}`);
+        logSecurityEvent('failed_login_attempt', {
+          username: validated.username,
+          ip: req.ip,
+          reason: 'invalid_password'
+        }, 'warning');
         return res.status(401).json({ message: 'Invalid credentials' });
       }
 
-      console.info(`Successful login for user: ${validated.username} from IP: ${req.ip}`);
+      logSecurityEvent('successful_login', {
+        username: validated.username,
+        ip: req.ip,
+        userId: user.id
+      }, 'info');
 
       // Generate JWT token
       const token = generateToken(user.id);
@@ -797,6 +828,167 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching stats:", error);
       res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  // ==========================================
+  // NUEVAS RUTAS - FUNCIONALIDADES AVANZADAS
+  // ==========================================
+
+  // Two-Factor Authentication Routes
+  app.post('/api/auth/2fa/setup', authenticate, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user!.id.toString());
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required for 2FA" });
+      }
+
+      const setup = await generate2FASecret(req.user!.id.toString(), user.email);
+      
+      logSecurityEvent('2fa_setup_initiated', {
+        userId: req.user!.id,
+        email: user.email
+      }, 'info');
+
+      res.json({
+        qrCode: setup.qrCodeUrl,
+        backupCodes: setup.backupCodes,
+        message: "Scan QR code with your authenticator app"
+      });
+    } catch (error) {
+      captureError(error as Error, { userId: req.user?.id });
+      res.status(500).json({ message: "Failed to setup 2FA" });
+    }
+  });
+
+  app.post('/api/auth/2fa/enable', authenticate, async (req: any, res) => {
+    try {
+      const { token } = req.body;
+      const success = await enable2FA(req.user!.id.toString(), token);
+      
+      if (success) {
+        logSecurityEvent('2fa_enabled', {
+          userId: req.user!.id
+        }, 'info');
+        res.json({ message: "2FA enabled successfully" });
+      } else {
+        res.status(400).json({ message: "Invalid verification token" });
+      }
+    } catch (error) {
+      captureError(error as Error, { userId: req.user?.id });
+      res.status(500).json({ message: "Failed to enable 2FA" });
+    }
+  });
+
+  app.post('/api/auth/2fa/disable', authenticate, async (req: any, res) => {
+    try {
+      const { password } = req.body;
+      const success = await disable2FA(req.user!.id.toString(), password);
+      
+      if (success) {
+        logSecurityEvent('2fa_disabled', {
+          userId: req.user!.id
+        }, 'warning');
+        res.json({ message: "2FA disabled successfully" });
+      } else {
+        res.status(400).json({ message: "Invalid password" });
+      }
+    } catch (error) {
+      captureError(error as Error, { userId: req.user?.id });
+      res.status(500).json({ message: "Failed to disable 2FA" });
+    }
+  });
+
+  // Enhanced Payments Routes
+  app.post('/api/payments/stripe', authenticate, async (req: any, res) => {
+    try {
+      const { amount, currency, serviceId } = req.body;
+      
+      if (!process.env.STRIPE_SECRET_KEY) {
+        return res.status(400).json({ message: "Stripe not configured" });
+      }
+
+      const payment = await createStripePayment(amount, currency, serviceId);
+      res.json(payment);
+    } catch (error) {
+      captureError(error as Error, { userId: req.user?.id });
+      res.status(500).json({ message: "Failed to create Stripe payment" });
+    }
+  });
+
+  app.post('/api/payments/pse', async (req, res) => {
+    try {
+      const { bank, documentType, documentNumber, amount, description } = req.body;
+      
+      const payment = await createPSEPayment({
+        bank,
+        documentType,
+        documentNumber,
+        amount,
+        description,
+      });
+      
+      res.json(payment);
+    } catch (error) {
+      captureError(error as Error);
+      res.status(500).json({ message: "Failed to create PSE payment" });
+    }
+  });
+
+  app.post('/api/payments/webhook', async (req, res) => {
+    try {
+      const signature = req.headers['stripe-signature'] as string;
+      await handlePaymentWebhook(req.body, signature);
+      res.json({ received: true });
+    } catch (error) {
+      captureError(error as Error);
+      res.status(400).json({ message: "Webhook error" });
+    }
+  });
+
+  app.post('/api/invoices/generate', authenticate, async (req: any, res) => {
+    try {
+      const invoiceData = req.body;
+      const invoiceNumber = await generateInvoice(invoiceData);
+      
+      logSecurityEvent('invoice_generated', {
+        invoiceNumber,
+        userId: req.user!.id
+      }, 'info');
+      
+      res.json({ invoiceNumber, message: "Invoice generated successfully" });
+    } catch (error) {
+      captureError(error as Error, { userId: req.user?.id });
+      res.status(500).json({ message: "Failed to generate invoice" });
+    }
+  });
+
+  // Health Check and Monitoring
+  app.get('/api/health', (req, res) => {
+    res.json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      version: '3.0.0',
+      environment: process.env.NODE_ENV,
+      uptime: process.uptime(),
+    });
+  });
+
+  app.get('/api/monitoring/errors', authenticate, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user!.id.toString());
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      // En producción, esto conectaría con Sentry API
+      res.json({
+        message: "Error monitoring data would be fetched from Sentry",
+        sentryConfigured: !!process.env.SENTRY_DSN,
+      });
+    } catch (error) {
+      captureError(error as Error);
+      res.status(500).json({ message: "Failed to fetch monitoring data" });
     }
   });
 
