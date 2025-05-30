@@ -160,9 +160,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/user - Get current user
-  app.get('/api/user', authenticate, async (req: AuthRequest, res) => {
+  app.get('/api/user', authenticate, async (req: any, res) => {
     try {
-      const { password, ...userWithoutPassword } = req.user!;
+      const { password, ...userWithoutPassword } = req.user;
       res.json(userWithoutPassword);
     } catch (error) {
       console.error("Error fetching user:", error);
@@ -181,7 +181,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/categories', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+  app.post('/api/categories', authenticate, requireAdmin, async (req: any, res) => {
     try {
       
       const categoryData = insertCategorySchema.parse(req.body);
@@ -193,12 +193,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/categories/:id', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+  app.put('/api/categories/:id', authenticate, requireAdmin, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user!.id.toString());
-      if (user?.role !== 'admin') {
-        return res.status(403).json({ message: "Admin access required" });
-      }
       
       const id = parseInt(req.params.id);
       const categoryData = insertCategorySchema.partial().parse(req.body);
@@ -210,7 +206,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/categories/:id', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+  app.delete('/api/categories/:id', authenticate, requireAdmin, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.user!.id.toString());
       if (user?.role !== 'admin') {
