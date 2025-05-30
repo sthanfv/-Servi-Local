@@ -6,9 +6,36 @@ import { setupVite, serveStatic, log } from "./vite";
 const app = express();
 
 // Performance middlewares
-app.use(compression()); // Gzip compression
-app.use(express.json({ limit: '10mb' })); // Límite de payload
-app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+app.use(compression({
+  threshold: 1024, // Solo comprimir archivos > 1KB
+  level: 6, // Nivel de compresión balanceado
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) return false;
+    return compression.filter(req, res);
+  }
+}));
+
+// Security middlewares
+app.use(express.json({ 
+  limit: '10mb',
+  strict: true,
+  type: ['application/json', 'application/*+json']
+}));
+app.use(express.urlencoded({ 
+  extended: false, 
+  limit: '10mb',
+  parameterLimit: 100
+}));
+
+// Prevent parameter pollution
+app.use((req, res, next) => {
+  for (const key in req.query) {
+    if (Array.isArray(req.query[key])) {
+      req.query[key] = req.query[key][0];
+    }
+  }
+  next();
+});
 
 app.use((req, res, next) => {
   const start = Date.now();
