@@ -41,6 +41,12 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
     // Check JWT token from Authorization header
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
+      
+      // Validate token format
+      if (token.length > 500) {
+        return res.status(401).json({ message: 'Invalid token format' });
+      }
+      
       const decoded = verifyToken(token);
       if (decoded) {
         userId = decoded.userId;
@@ -49,11 +55,19 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 
     // Fallback to session
     if (!userId && sessionUserId) {
-      userId = sessionUserId;
+      // Validate session userId is a number
+      if (typeof sessionUserId === 'number' && sessionUserId > 0) {
+        userId = sessionUserId;
+      }
     }
 
     if (!userId) {
       return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    // Additional validation: userId should be positive integer
+    if (userId <= 0 || !Number.isInteger(userId)) {
+      return res.status(401).json({ message: 'Invalid user ID' });
     }
 
     const user = await storage.getUser(userId.toString());

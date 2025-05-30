@@ -2,6 +2,9 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
+import rateLimit from "express-rate-limit";
+import helmet from "helmet";
+import cors from "cors";
 import { storage } from "./storage";
 import { authenticate, requireAdmin, requireProvider, hashPassword, comparePassword, generateToken, type AuthRequest } from "./auth";
 import { insertUserSchema } from "@shared/schema";
@@ -22,6 +25,46 @@ import {
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Security middlewares
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://auth.util.repl.co"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+      },
+    },
+  }));
+
+  app.use(cors({
+    origin: process.env.NODE_ENV === 'production' 
+      ? ['https://your-domain.com'] 
+      : ['http://localhost:5000', 'https://*.replit.dev'],
+    credentials: true,
+  }));
+
+  // Rate limiting
+  const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // limit each IP to 100 requests per windowMs
+    message: "Too many requests from this IP, please try again later.",
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // limit each IP to 5 login attempts per windowMs
+    message: "Too many login attempts, please try again later.",
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  app.use('/api/', apiLimiter);
+  app.use('/api/login', authLimiter);
+  app.use('/api/register', authLimiter);
+
   // Session configuration for JWT + Express Sessions
   const PgSession = connectPgSimple(session);
   
@@ -161,6 +204,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // GET /api/user - Get current user
   app.get('/api/user', authenticate, async (req: any, res) => {
+    try {
+      const { password, ...userWithoutPassword } = req.user;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // GET /api/auth/user - Alternative endpoint for authentication check
+  app.get('/api/auth/user', authenticate, async (req: any, res) => {
     try {
       const { password, ...userWithoutPassword } = req.user;
       res.json(userWithoutPassword);

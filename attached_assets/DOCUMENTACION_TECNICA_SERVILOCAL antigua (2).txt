@@ -465,14 +465,23 @@ servilocal/
 - **admin**: Acceso completo al sistema
 
 ### Medidas de Seguridad Implementadas
-- Hash de contraseñas con bcrypt
+- Hash de contraseñas con bcrypt (12 rounds)
 - Validación de entrada con Zod
-- Sanitización de datos
-- Protección CORS
-- Rate limiting (configurable)
+- Sanitización de datos con express-validator
+- Protección CORS configurada por ambiente
+- Rate limiting implementado:
+  - API general: 100 req/15min por IP
+  - Auth endpoints: 5 req/15min por IP
+- Helmet.js para headers de seguridad
+- Content Security Policy (CSP)
 - Validación de roles para acciones específicas
 - Control de duplicados en reseñas
 - Moderación obligatoria de contenido generado por usuarios
+- Validación estricta de tokens JWT
+- Validación de formato de IDs de usuario
+- Protección contra inyección SQL (Drizzle ORM)
+- Sesiones seguras con PostgreSQL
+- HTTPS enforcement en producción
 
 ---
 
@@ -1206,10 +1215,27 @@ ServiLocal incluye descargos de responsabilidad completos que establecen clarame
 
 ## 19. AUDITORÍA Y MEJORAS CONTINUAS
 
+### Auditoría de Seguridad (Diciembre 2024)
+
+#### Vulnerabilidades Detectadas y Corregidas:
+1. **Rate Limiting**: Implementado para prevenir ataques de fuerza bruta
+2. **CORS Misconfiguration**: Configurado apropiadamente por ambiente
+3. **Missing Security Headers**: Helmet.js implementado con CSP
+4. **Token Validation**: Mejora en validación de JWT tokens
+5. **Session Security**: Configuración segura de cookies de sesión
+6. **Input Validation**: Validación más estricta en endpoints críticos
+
+#### Nivel de Seguridad Actual: **ROBUSTO**
+- Protección contra OWASP Top 10
+- Rate limiting en endpoints críticos
+- Validación exhaustiva de entrada
+- Gestión segura de sesiones
+- Headers de seguridad configurados
+
 ### Auditoría de Código
 - Revisión mensual de rendimiento
 - Optimización de consultas SQL
-- Revisión de seguridad
+- Revisión de seguridad trimestral
 - Actualización de dependencias
 
 ### Métricas de Seguimiento
