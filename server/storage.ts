@@ -40,6 +40,8 @@ import {
   type InsertSupportTicket,
 } from "@shared/schema";
 import { db } from "./db";
+import { cacheManager } from "./cache";
+import { wsManager } from "./websocket";
 import { eq, desc, and, like, sql, ilike } from "drizzle-orm";
 
 export interface IStorage {
@@ -49,14 +51,14 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, user: Partial<InsertUser>): Promise<User>;
-  
+
   // Categories
   getCategories(): Promise<Category[]>;
   getCategoryById(id: number): Promise<Category | undefined>;
   createCategory(category: InsertCategory): Promise<Category>;
   updateCategory(id: number, category: Partial<InsertCategory>): Promise<Category>;
   deleteCategory(id: number): Promise<void>;
-  
+
   // Services
   getServices(filters?: { categoryId?: number; search?: string; location?: string; approved?: boolean }): Promise<Service[]>;
   getServiceById(id: number): Promise<Service | undefined>;
@@ -66,34 +68,34 @@ export interface IStorage {
   deleteService(id: number): Promise<void>;
   approveService(id: number): Promise<Service>;
   featureService(id: number, featured: boolean): Promise<Service>;
-  
+
   // Content
   getContent(): Promise<Content[]>;
   getContentByKey(key: string): Promise<Content | undefined>;
   createContent(content: InsertContent): Promise<Content>;
   updateContent(id: number, content: Partial<InsertContent>): Promise<Content>;
   deleteContent(id: number): Promise<void>;
-  
+
   // Suggestions
   getSuggestions(): Promise<Suggestion[]>;
   createSuggestion(suggestion: InsertSuggestion): Promise<Suggestion>;
   updateSuggestionStatus(id: number, status: string, adminResponse?: string): Promise<Suggestion>;
-  
+
   // Donations
   getDonations(): Promise<Donation[]>;
   createDonation(donation: InsertDonation): Promise<Donation>;
   updateDonationStatus(id: number, status: string): Promise<Donation>;
-  
+
   // Messages
   getMessagesByServiceId(serviceId: number): Promise<Message[]>;
   createMessage(message: InsertMessage): Promise<Message>;
-  
+
   // Reviews
   getReviewsByServiceId(serviceId: number): Promise<Review[]>;
   createReview(review: InsertReview): Promise<Review>;
   approveReview(id: number): Promise<Review>;
   deleteReview(id: number): Promise<void>;
-  
+
   // Advertisements
   getAdvertisements(): Promise<Advertisement[]>;
   getActiveAdvertisements(): Promise<Advertisement[]>;
@@ -102,7 +104,7 @@ export interface IStorage {
   updateAdvertisement(id: number, advertisement: Partial<InsertAdvertisement>): Promise<Advertisement>;
   updateAdvertisementStatus(id: number, status: string): Promise<Advertisement>;
   deleteAdvertisement(id: number): Promise<void>;
-  
+
   // Support System
   getSupportCategories(): Promise<SupportCategory[]>;
   createSupportCategory(category: InsertSupportCategory): Promise<SupportCategory>;
@@ -182,31 +184,31 @@ export class DatabaseStorage implements IStorage {
   // Services
   async getServices(filters?: { categoryId?: number; search?: string; location?: string; approved?: boolean }): Promise<Service[]> {
     let query = db.select().from(services);
-    
+
     const conditions = [];
-    
+
     if (filters?.approved !== undefined) {
       conditions.push(eq(services.isApproved, filters.approved));
     }
-    
+
     if (filters?.categoryId) {
       conditions.push(eq(services.categoryId, filters.categoryId));
     }
-    
+
     if (filters?.search) {
       conditions.push(
         sql`(${services.title} ILIKE ${'%' + filters.search + '%'} OR ${services.description} ILIKE ${'%' + filters.search + '%'})`
       );
     }
-    
+
     if (filters?.location) {
       conditions.push(ilike(services.location, `%${filters.location}%`));
     }
-    
+
     if (conditions.length > 0) {
       query = query.where(and(...conditions));
     }
-    
+
     return await query.orderBy(desc(services.createdAt));
   }
 
@@ -219,9 +221,20 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(services).where(eq(services.userId, userId)).orderBy(desc(services.createdAt));
   }
 
-  async createService(service: InsertService): Promise<Service> {
-    const [newService] = await db.insert(services).values(service).returning();
-    return newService;
+  async createService(data: InsertService): Promise<Service> {
+    const [service] = await db
+      .insert(services)
+      .values(data)
+      .returning();
+
+    // Invalidate related caches
+    cacheManager.invalidatePattern('services');
+    cacheManager.invalidatePattern('stats');
+
+    // Send WebSocket notification
+    wsManager.broadcastServiceUpdate(service.id, 'created');
+
+    return service;
   }
 
   async updateService(id: number, service: Partial<InsertService>): Promise<Service> {
@@ -421,11 +434,11 @@ export class DatabaseStorage implements IStorage {
 
   async getSupportArticles(categoryId?: number): Promise<SupportArticle[]> {
     let query = db.select().from(supportArticles).where(eq(supportArticles.isPublished, true));
-    
+
     if (categoryId) {
       query = query.where(and(eq(supportArticles.isPublished, true), eq(supportArticles.categoryId, categoryId)));
     }
-    
+
     return await query.orderBy(desc(supportArticles.isPinned), desc(supportArticles.createdAt));
   }
 
@@ -450,11 +463,11 @@ export class DatabaseStorage implements IStorage {
 
   async getFaqItems(categoryId?: number): Promise<FaqItem[]> {
     let query = db.select().from(faqItems).where(eq(faqItems.isActive, true));
-    
+
     if (categoryId) {
       query = query.where(and(eq(faqItems.isActive, true), eq(faqItems.categoryId, categoryId)));
     }
-    
+
     return await query.orderBy(faqItems.order);
   }
 

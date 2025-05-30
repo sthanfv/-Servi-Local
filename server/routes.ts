@@ -8,7 +8,10 @@ import cors from "cors";
 import { body, validationResult } from "express-validator";
 import { encode } from "html-entities";
 import { storage } from "./storage";
-import { authenticate, requireAdmin, requireProvider, hashPassword, comparePassword, generateToken, type AuthRequest } from "./auth";
+import { authenticate, requireAdmin, requireProvider, hashPassword, comparePassword, generateToken, generateRefreshToken, type AuthRequest } from "./auth";
+import { cacheManager } from "./cache";
+import { wsManager } from "./websocket";
+import { healthMonitor } from "./healthCheck";
 import { insertUserSchema } from "@shared/schema";
 import { z } from "zod";
 import {
@@ -45,6 +48,9 @@ import {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize monitoring system
   initializeMonitoring();
+  
+  // Start health monitoring
+  healthMonitor.startMonitoring();
   
   // Configure trust proxy for rate limiting
   app.set('trust proxy', 1);
@@ -83,10 +89,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     credentials: true,
   }));
 
-  // Rate limiting - Configuración mejorada
+  // Enhanced rate limiting with user-based tracking
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: process.env.NODE_ENV === 'development' ? 1000 : 100, // 100 req/15min en producción
+    max: process.env.NODE_ENV === 'development' ? 1000 : 100,
     message: {
       error: "Too many requests from this IP, please try again later.",
       retryAfter: "15 minutes"
@@ -95,7 +101,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     legacyHeaders: false,
     trustProxy: true,
     keyGenerator: (req) => {
-      return req.ip || req.connection.remoteAddress || 'unknown';
+      // Combine IP with user ID if authenticated for better tracking
+      const ip = req.ip || req.connection.remoteAddress || 'unknown';
+      const userId = (req as any).user?.id;
+      return userId ? `${ip}:${userId}` : ip;
+    },
+    skip: async (req) => {
+      // Additional user-based rate limiting
+      const userId = (req as any).user?.id;
+      if (userId) {
+        const allowed = await cacheManager.checkUserRateLimit(
+          userId.toString(),
+          'api_request',
+          200, // 200 requests per user per 15 minutes
+          15 * 60 * 1000
+        );
+        return !allowed; // Skip if user rate limit exceeded
+      }
+      return false;
     },
   });
 
@@ -808,23 +831,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Statistics endpoint
-  app.get('/api/stats', async (req, res) => {
+  // Token refresh endpoint
+  app.post('/api/auth/refresh', async (req, res) => {
     try {
-      const [services, categories] = await Promise.all([
-        storage.getServices({ approved: true }),
-        storage.getCategories(),
-      ]);
+      const { refreshToken } = req.body;
+      const { verifyToken } = await import('./auth');
       
-      const providers = new Set(services.map(s => s.userId)).size;
-      const totalReviews = services.reduce((sum, service) => sum + (service.reviewCount || 0), 0);
+      const decoded = verifyToken(refreshToken);
+      if (!decoded || decoded.type !== 'refresh') {
+        return res.status(401).json({ message: 'Invalid refresh token' });
+      }
+
+      const user = await storage.getUser(decoded.userId.toString());
+      if (!user || !user.isActive) {
+        return res.status(401).json({ message: 'User not found or inactive' });
+      }
+
+      // Generate new tokens
+      const newToken = generateToken(decoded.userId, (decoded.version || 1) + 1);
+      const newRefreshToken = generateRefreshToken(decoded.userId, (decoded.version || 1) + 1);
       
       res.json({
-        services: services.length,
-        providers,
-        reviews: totalReviews,
-        categories: categories.length,
+        token: newToken,
+        refreshToken: newRefreshToken,
+        message: 'Tokens refreshed successfully'
       });
+    } catch (error) {
+      console.error('Token refresh error:', error);
+      res.status(500).json({ message: 'Token refresh failed' });
+    }
+  });
+
+  // Enhanced statistics endpoint with caching
+  app.get('/api/stats', async (req, res) => {
+    try {
+      const stats = await cacheManager.getCachedStats();
+      res.json(stats);
     } catch (error) {
       console.error("Error fetching stats:", error);
       res.status(500).json({ message: "Failed to fetch stats" });
@@ -963,15 +1005,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Health Check and Monitoring
-  app.get('/api/health', (req, res) => {
-    res.json({
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
-      version: '3.0.0',
-      environment: process.env.NODE_ENV,
-      uptime: process.uptime(),
-    });
+  // Comprehensive Health Check
+  app.get('/api/health', async (req, res) => {
+    try {
+      const healthStatus = await healthMonitor.performHealthCheck();
+      const statusCode = healthStatus.status === 'healthy' ? 200 : 
+                        healthStatus.status === 'degraded' ? 200 : 503;
+      res.status(statusCode).json(healthStatus);
+    } catch (error) {
+      res.status(503).json({
+        status: 'unhealthy',
+        timestamp: new Date().toISOString(),
+        error: 'Health check failed'
+      });
+    }
+  });
+
+  // Detailed health monitoring for admins
+  app.get('/api/health/detailed', authenticate, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user!.id.toString());
+      if (user?.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const healthStatus = healthMonitor.getLastHealthCheck() || await healthMonitor.performHealthCheck();
+      res.json(healthStatus);
+    } catch (error) {
+      captureError(error as Error);
+      res.status(500).json({ message: "Failed to fetch detailed health status" });
+    }
   });
 
   app.get('/api/monitoring/errors', authenticate, async (req: any, res) => {
@@ -993,5 +1056,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+  
+  // Initialize WebSocket server
+  wsManager.initialize(httpServer);
+  
   return httpServer;
 }

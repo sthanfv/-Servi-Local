@@ -19,13 +19,39 @@ export const comparePassword = async (password: string, hash: string): Promise<b
   return bcrypt.compare(password, hash);
 };
 
-export const generateToken = (userId: number): string => {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
+export const generateToken = (userId: number, version: number = 1): string => {
+  return jwt.sign({ 
+    userId, 
+    version, 
+    iat: Math.floor(Date.now() / 1000) 
+  }, JWT_SECRET, { expiresIn: '24h' }); // Reduced from 7d to 24h for security
 };
 
-export const verifyToken = (token: string): { userId: number } | null => {
+export const generateRefreshToken = (userId: number, version: number = 1): string => {
+  return jwt.sign({ 
+    userId, 
+    version, 
+    type: 'refresh',
+    iat: Math.floor(Date.now() / 1000) 
+  }, JWT_SECRET, { expiresIn: '7d' });
+};
+
+export const verifyToken = (token: string): { userId: number; version?: number; type?: string } | null => {
   try {
-    return jwt.verify(token, JWT_SECRET) as { userId: number };
+    const decoded = jwt.verify(token, JWT_SECRET) as { 
+      userId: number; 
+      version?: number; 
+      type?: string;
+      iat: number;
+    };
+    
+    // Check if token is too old (force refresh after 12 hours)
+    const tokenAge = Date.now() / 1000 - decoded.iat;
+    if (tokenAge > 12 * 60 * 60 && decoded.type !== 'refresh') {
+      return null; // Force token refresh
+    }
+    
+    return decoded;
   } catch {
     return null;
   }
