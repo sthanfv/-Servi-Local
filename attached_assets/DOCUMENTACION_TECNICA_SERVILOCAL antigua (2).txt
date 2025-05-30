@@ -2524,6 +2524,501 @@ console.warn(`Failed login attempt for user: ${username} from IP: ${req.ip}`);
 
 ---
 
+## PLAN DE MANTENIMIENTO Y OPERACIONES
+
+### 🔧 INTRODUCCIÓN AL MANTENIMIENTO
+
+Una vez que ServiLocal esté desplegado y funcionando con usuarios reales, requiere mantenimiento regular para:
+- Garantizar seguridad y disponibilidad 24/7
+- Optimizar rendimiento conforme crece el tráfico
+- Implementar nuevas funcionalidades solicitadas por usuarios
+- Prevenir problemas antes de que afecten a los usuarios
+- Mantener cumplimiento legal y normativo
+
+### 📅 CRONOGRAMA DE MANTENIMIENTO
+
+#### MANTENIMIENTO DIARIO (Automatizado)
+```bash
+✅ Backup automático de base de datos (5:00 AM)
+✅ Health checks automáticos cada 30 segundos
+✅ Monitoreo de errores con Sentry
+✅ Logs de seguridad revisados automáticamente
+✅ Métricas de rendimiento capturadas
+
+# Alertas automáticas en caso de:
+- Errores críticos > 5 por minuto
+- Tiempo de respuesta > 2 segundos
+- Uso de memoria > 90%
+- Base de datos desconectada
+- Intentos de hack detectados
+```
+
+#### MANTENIMIENTO SEMANAL (Manual - 2-3 horas)
+```bash
+LUNES: Revisión de Seguridad
+□ Revisar logs de intentos de login fallidos
+□ Verificar actualizaciones de seguridad disponibles
+□ Comprobar certificados SSL (si usan dominio personalizado)
+□ Revisar usuarios suspendidos o reportados
+
+MIÉRCOLES: Revisión de Rendimiento
+□ Analizar métricas de velocidad de carga
+□ Revisar queries de base de datos lentas
+□ Optimizar cache si es necesario
+□ Verificar espacio de almacenamiento
+
+VIERNES: Revisión de Contenido
+□ Moderar servicios pendientes de aprobación
+□ Revisar reseñas reportadas
+□ Responder tickets de soporte pendientes
+□ Actualizar contenido de ayuda si es necesario
+```
+
+#### MANTENIMIENTO MENSUAL (Manual - 4-6 horas)
+```bash
+PRIMERA SEMANA DEL MES:
+□ Actualizar dependencias de seguridad críticas
+□ Revisar y actualizar documentación técnica
+□ Análisis de métricas de uso y crecimiento
+□ Backup completo y prueba de restauración
+□ Revisar y actualizar términos legales si es necesario
+
+SEGUNDA SEMANA DEL MES:
+□ Optimización de base de datos (reindex, cleanup)
+□ Revisión de costos de hosting e infraestructura
+□ Análisis de feedback de usuarios
+□ Planificación de nuevas funcionalidades
+
+TERCERA SEMANA DEL MES:
+□ Testing completo de todas las funcionalidades
+□ Auditoría de seguridad manual
+□ Revisión de compliance y regulaciones
+□ Actualización de plan de contingencia
+
+CUARTA SEMANA DEL MES:
+□ Generación de reportes mensuales
+□ Revisión de objetivos y KPIs
+□ Planificación del siguiente mes
+□ Comunicación con stakeholders
+```
+
+#### MANTENIMIENTO TRIMESTRAL (Manual - 8-12 horas)
+```bash
+□ Auditoría completa de seguridad OWASP
+□ Actualización mayor de dependencias
+□ Optimización profunda de rendimiento
+□ Revisión completa de arquitectura
+□ Análisis de escalabilidad futura
+□ Actualización de plan de disaster recovery
+□ Capacitación del equipo en nuevas tecnologías
+□ Revisión legal y de compliance
+```
+
+### 🚨 MONITOREO CONTINUO
+
+#### Métricas Críticas a Vigilar 24/7:
+```javascript
+// Métricas automáticas con alertas:
+- Uptime: Debe ser > 99.5%
+- Tiempo de respuesta: < 2 segundos promedio
+- Errores HTTP 5xx: < 0.1% de requests
+- Uso de CPU: < 80% sostenido
+- Uso de memoria: < 85% sostenido
+- Conexiones de base de datos: < 80% del pool
+- Espacio en disco: > 20% libre
+- Certificados SSL: > 30 días para expirar
+```
+
+#### Alertas Configuradas:
+```bash
+🚨 CRÍTICAS (Respuesta inmediata):
+- Sitio web caído (downtime > 2 minutos)
+- Base de datos desconectada
+- Errores masivos (>10 errores/minuto)
+- Intentos de hack activos
+- Uso de memoria > 95%
+
+⚠️ IMPORTANTES (Respuesta en 2-4 horas):
+- Tiempo de respuesta degradado (>3 segundos)
+- Errores incrementados (>5 errores/minuto)
+- SSL próximo a expirar (<30 días)
+- Backup fallido
+- Servicios externos desconectados
+
+ℹ️ INFORMATIVAS (Revisión siguiente día laboral):
+- Nuevos usuarios registrados
+- Servicios publicados pendientes
+- Tickets de soporte nuevos
+- Métricas de uso inusual
+```
+
+### 🔐 MANTENIMIENTO DE SEGURIDAD
+
+#### Tareas de Seguridad Semanales:
+```bash
+□ Revisar logs de autenticación fallida
+□ Verificar intentos de acceso sospechosos
+□ Comprobar violaciones de rate limiting
+□ Auditar cambios en roles de usuarios
+□ Revisar actividad de cuentas administrativas
+□ Verificar integridad de backup
+□ Comprobar actualizaciones de seguridad disponibles
+```
+
+#### Tareas de Seguridad Mensuales:
+```bash
+□ Ejecutar npm audit y corregir vulnerabilidades
+□ Revisar dependencias desactualizadas
+□ Auditoría manual de código para vulnerabilidades
+□ Testing de penetración básico
+□ Revisar configuración de headers de seguridad
+□ Verificar políticas de contraseñas
+□ Auditar permisos de usuarios y roles
+□ Revisar logs de Sentry por patrones sospechosos
+```
+
+#### Tareas de Seguridad Trimestrales:
+```bash
+□ Auditoría completa OWASP Top 10
+□ Penetration testing profesional
+□ Revisión de compliance (GDPR, LOPD)
+□ Actualización de políticas de seguridad
+□ Capacitación de equipo en nuevas amenazas
+□ Revisión de plan de respuesta a incidentes
+□ Testing de disaster recovery
+□ Auditoría de terceros (opcional)
+```
+
+### 📊 MANTENIMIENTO DE BASE DE DATOS
+
+#### Tareas Diarias (Automatizadas):
+```sql
+-- Scripts automáticos ejecutados diariamente:
+-- 1. Backup incremental
+pg_dump --incremental servilocal_db > daily_backup_$(date +%Y%m%d).sql
+
+-- 2. Limpieza de sesiones expiradas
+DELETE FROM session WHERE expire < NOW();
+
+-- 3. Estadísticas básicas
+SELECT 
+  (SELECT COUNT(*) FROM users) as total_users,
+  (SELECT COUNT(*) FROM services WHERE is_approved = true) as active_services,
+  (SELECT COUNT(*) FROM reviews WHERE is_approved = true) as total_reviews;
+```
+
+#### Tareas Semanales:
+```sql
+-- 1. Análisis de performance de queries
+SELECT query, calls, total_time, mean_time 
+FROM pg_stat_statements 
+ORDER BY total_time DESC 
+LIMIT 10;
+
+-- 2. Verificar tamaño de tablas
+SELECT 
+  schemaname,
+  tablename,
+  pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size
+FROM pg_tables 
+WHERE schemaname = 'public'
+ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
+
+-- 3. Limpieza de datos huérfanos
+DELETE FROM reviews WHERE service_id NOT IN (SELECT id FROM services);
+DELETE FROM messages WHERE service_id NOT IN (SELECT id FROM services);
+```
+
+#### Tareas Mensuales:
+```sql
+-- 1. Reindex de tablas principales
+REINDEX TABLE users;
+REINDEX TABLE services;
+REINDEX TABLE reviews;
+
+-- 2. Actualizar estadísticas
+ANALYZE;
+
+-- 3. Verificar integridad referencial
+SELECT conname, conrelid::regclass 
+FROM pg_constraint 
+WHERE contype = 'f' 
+AND NOT pg_catalog.pg_relation_is_updatable(conrelid::regclass,false,false);
+```
+
+### 🔄 PLAN DE ACTUALIZACIONES
+
+#### Actualizaciones de Emergencia (Inmediatas):
+```bash
+# Para vulnerabilidades de seguridad críticas:
+1. npm audit
+2. Identificar vulnerabilidad crítica (CVSS > 8.0)
+3. npm update [paquete-vulnerable]
+4. Testing inmediato en desarrollo
+5. Deploy urgente a producción
+6. Verificación post-deploy
+7. Comunicación a usuarios si es necesario
+```
+
+#### Actualizaciones Menores (Mensuales):
+```bash
+# Proceso para actualizaciones no críticas:
+1. Revisar changelog de dependencias
+2. Actualizar en rama de desarrollo
+3. Testing completo de funcionalidades
+4. Deploy en horario de menor tráfico
+5. Monitoreo post-deploy por 24h
+6. Rollback automático si hay problemas
+```
+
+#### Actualizaciones Mayores (Trimestrales):
+```bash
+# Para cambios significativos de versión:
+1. Planificación detallada (2-4 semanas antes)
+2. Testing extensivo en ambiente de staging
+3. Plan de rollback detallado
+4. Comunicación previa a usuarios
+5. Deploy en ventana de mantenimiento programada
+6. Monitoreo intensivo post-deploy
+7. Documentación actualizada
+```
+
+### 🚨 PLAN DE CONTINGENCIA
+
+#### Procedimiento para Caídas del Sistema:
+```bash
+PASO 1: Detección (Automatizada)
+- Alerta automática por downtime > 2 minutos
+- Notificación inmediata a team técnico
+
+PASO 2: Diagnóstico Inicial (5 minutos)
+- Verificar health checks: /api/health
+- Revisar logs de servidor en tiempo real
+- Comprobar conectividad de base de datos
+- Verificar estado de Replit hosting
+
+PASO 3: Acción Inmediata (5-10 minutos)
+- Reiniciar servidor si es necesario
+- Verificar variables de entorno
+- Comprobar límites de recursos
+- Escalar recursos si es necesario
+
+PASO 4: Comunicación (15 minutos)
+- Actualizar página de estado
+- Notificar en redes sociales si aplica
+- Comunicar tiempo estimado de resolución
+
+PASO 5: Resolución y Monitoreo
+- Implementar fix definitivo
+- Monitoreo intensivo por 2 horas
+- Post-mortem después de estabilización
+```
+
+#### Procedimiento para Problemas de Seguridad:
+```bash
+PASO 1: Evaluación de Amenaza (Inmediato)
+- Clasificar severidad (Crítica/Alta/Media/Baja)
+- Determinar alcance del problema
+- Evaluar si hay datos comprometidos
+
+PASO 2: Contención (5-30 minutos según severidad)
+- Bloquear IPs maliciosas si es necesario
+- Suspender funcionalidades afectadas
+- Cambiar credenciales comprometidas
+- Activar modo de solo lectura si es necesario
+
+PASO 3: Investigación (1-24 horas)
+- Analizar logs de seguridad detalladamente
+- Identificar vector de ataque
+- Determinar datos accedidos
+- Documentar timeline del incidente
+
+PASO 4: Remediación
+- Aplicar parches de seguridad
+- Fortalecer protecciones
+- Actualizar políticas si es necesario
+- Comunicar a usuarios afectados
+
+PASO 5: Prevención Futura
+- Actualizar plan de seguridad
+- Implementar controles adicionales
+- Capacitar equipo en nuevas amenazas
+- Revisar y actualizar documentación
+```
+
+### 📈 MÉTRICAS DE MANTENIMIENTO
+
+#### KPIs de Operaciones:
+```javascript
+// Métricas a trackear mensualmente:
+const maintenanceKPIs = {
+  availability: {
+    target: 99.5,
+    current: 99.8, // %
+    trend: "↗️"
+  },
+  responseTime: {
+    target: 2000,
+    current: 1200, // ms
+    trend: "↗️"
+  },
+  errorRate: {
+    target: 0.1,
+    current: 0.05, // %
+    trend: "↗️"
+  },
+  securityIncidents: {
+    target: 0,
+    current: 0,
+    trend: "→"
+  },
+  backupSuccess: {
+    target: 100,
+    current: 100, // %
+    trend: "→"
+  },
+  updateCompliance: {
+    target: 100,
+    current: 95, // % de actualizaciones al día
+    trend: "↗️"
+  }
+};
+```
+
+#### Reportes de Mantenimiento:
+```bash
+REPORTE SEMANAL:
+□ Resumen de incidents y resoluciones
+□ Métricas de performance vs targets
+□ Estado de backups y actualizaciones
+□ Alertas generadas y tiempo de respuesta
+□ Tareas de mantenimiento completadas
+
+REPORTE MENSUAL:
+□ KPIs de disponibilidad y rendimiento
+□ Análisis de tendencias de uso
+□ Costos de infraestructura
+□ Auditoría de seguridad summary
+□ Plan de mejoras para siguiente mes
+
+REPORTE TRIMESTRAL:
+□ Análisis completo de crecimiento
+□ ROI de inversiones en infraestructura
+□ Evaluación de arquitectura actual
+□ Plan de escalabilidad
+□ Actualización de roadmap técnico
+```
+
+### 🛠️ HERRAMIENTAS DE MANTENIMIENTO
+
+#### Herramientas Integradas en ServiLocal:
+```bash
+✅ Health Monitoring: /api/health (implementado)
+✅ Error Tracking: Sentry integration (implementado)  
+✅ Performance Monitoring: Health checks automáticos (implementado)
+✅ Security Logging: Sistema completo (implementado)
+✅ Database Monitoring: PostgreSQL health checks (implementado)
+✅ Cache Monitoring: NodeCache metrics (implementado)
+✅ WebSocket Monitoring: Connection tracking (implementado)
+```
+
+#### Herramientas Externas Recomendadas:
+```bash
+MONITOREO:
+- UptimeRobot: Verificar disponibilidad externa
+- Google PageSpeed Insights: Monitoreo de performance
+- SSL Labs: Verificar configuración SSL
+
+SEGURIDAD:
+- Snyk: Escaneo de vulnerabilidades (ya integrado en CI/CD)
+- OWASP ZAP: Testing de penetración
+- HaveIBeenPwned: Monitoreo de credenciales comprometidas
+
+ANALYTICS:
+- Google Analytics: Métricas de uso
+- PostgreSQL Explain: Análisis de queries
+- Replit Analytics: Métricas de hosting
+```
+
+### 💡 MEJORES PRÁCTICAS
+
+#### Principios de Mantenimiento:
+```bash
+1. PREVENCIÓN > REACCIÓN
+   - Monitoreo proactivo
+   - Alertas tempranas
+   - Maintenance windows regulares
+
+2. AUTOMATIZACIÓN MÁXIMA
+   - Backups automáticos
+   - Health checks automáticos
+   - Actualizaciones de seguridad automáticas cuando sea seguro
+
+3. DOCUMENTACIÓN COMPLETA
+   - Todos los procedimientos documentados
+   - Runbooks para incidents comunes
+   - Knowledge base actualizada
+
+4. TESTING CONTINUO
+   - Tests automáticos en CI/CD
+   - Testing manual regular
+   - Disaster recovery testing
+
+5. COMUNICACIÓN TRANSPARENTE
+   - Status page pública
+   - Comunicación proactiva de incidents
+   - Feedback loop con usuarios
+```
+
+#### Checklist de Preparación:
+```bash
+ANTES DEL LAUNCH:
+□ Configurar todas las alertas automáticas
+□ Documentar todos los procedimientos
+□ Establecer contacts de emergencia
+□ Configurar backups automáticos
+□ Testing completo de disaster recovery
+□ Capacitar team en procedimientos
+
+POST-LAUNCH (Primera semana):
+□ Monitoreo intensivo 24/7
+□ Daily checks manuales
+□ Documentar issues encontrados
+□ Ajustar alertas según comportamiento real
+□ Optimizar basado en métricas reales
+
+POST-LAUNCH (Primer mes):
+□ Establecer baseline de métricas normales
+□ Refinar procedimientos basado en experiencia
+□ Implementar mejoras identificadas
+□ Capacitar usuarios en self-service
+□ Planificar roadmap de mejoras
+```
+
+### 📞 CONTACTOS DE EMERGENCIA
+
+#### Escalación de Incidents:
+```bash
+NIVEL 1: Issues Menores (Respuesta en 24h)
+- Contact: Administrador principal
+- Scope: Tickets de soporte, content moderation
+
+NIVEL 2: Issues Importantes (Respuesta en 2-4h)  
+- Contact: Team técnico
+- Scope: Performance degradation, errores incrementados
+
+NIVEL 3: Emergencias (Respuesta inmediata)
+- Contact: Desarrollador principal + Administrador
+- Scope: System down, security breach, data loss
+
+PROVEEDORES CRÍTICOS:
+- Replit Support: Para issues de hosting
+- Neon Support: Para issues de base de datos
+- Sentry Support: Para issues de monitoreo
+```
+
+---
+
 ## DESCARGOS DE RESPONSABILIDAD
 
 ### ⚖️ Marco Legal Implementado
