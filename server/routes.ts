@@ -183,10 +183,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/categories', authenticate, requireAdmin, async (req: AuthRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
-      if (user?.role !== 'admin') {
-        return res.status(403).json({ message: "Admin access required" });
-      }
       
       const categoryData = insertCategorySchema.parse(req.body);
       const category = await storage.createCategory(categoryData);
@@ -197,9 +193,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/categories/:id', isAuthenticated, async (req: any, res) => {
+  app.put('/api/categories/:id', authenticate, requireAdmin, async (req: AuthRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id.toString());
       if (user?.role !== 'admin') {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -214,9 +210,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/categories/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/categories/:id', authenticate, requireAdmin, async (req: AuthRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id.toString());
       if (user?.role !== 'admin') {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -262,11 +258,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/services', isAuthenticated, async (req: any, res) => {
+  app.post('/api/services', authenticate, async (req: any, res) => {
     try {
       const serviceData = insertServiceSchema.parse({
         ...req.body,
-        userId: req.user.claims.sub,
+        userId: req.user!.id.toString(),
       });
       const service = await storage.createService(serviceData);
       res.json(service);
@@ -276,17 +272,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/services/:id', isAuthenticated, async (req: any, res) => {
+  app.put('/api/services/:id', authenticate, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id.toString());
       const service = await storage.getServiceById(id);
       
       if (!service) {
         return res.status(404).json({ message: "Service not found" });
       }
       
-      if (service.userId !== req.user.claims.sub && user?.role !== 'admin') {
+      if (service.userId !== req.user!.id.toString() && user?.role !== 'admin') {
         return res.status(403).json({ message: "Access denied" });
       }
       
@@ -299,17 +295,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/services/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/services/:id', authenticate, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id.toString());
       const service = await storage.getServiceById(id);
       
       if (!service) {
         return res.status(404).json({ message: "Service not found" });
       }
       
-      if (service.userId !== req.user.claims.sub && user?.role !== 'admin') {
+      if (service.userId !== req.user!.id.toString() && user?.role !== 'admin') {
         return res.status(403).json({ message: "Access denied" });
       }
       
@@ -321,9 +317,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/services/:id/approve', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/services/:id/approve', authenticate, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id.toString());
       if (user?.role !== 'admin') {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -337,9 +333,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/services/:id/feature', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/services/:id/feature', authenticate, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id.toString());
       if (user?.role !== 'admin') {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -354,9 +350,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/user/services', isAuthenticated, async (req: any, res) => {
+  app.get('/api/user/services', authenticate, async (req: any, res) => {
     try {
-      const services = await storage.getServicesByUserId(req.user.claims.sub);
+      const services = await storage.getServicesByUserId(req.user!.id.toString());
       res.json(services);
     } catch (error) {
       console.error("Error fetching user services:", error);
@@ -364,9 +360,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/admin/services/pending', isAuthenticated, async (req: any, res) => {
+  app.get('/api/admin/services/pending', authenticate, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id.toString());
       if (user?.role !== 'admin') {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -403,9 +399,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/content', isAuthenticated, async (req: any, res) => {
+  app.post('/api/content', authenticate, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id.toString());
       if (user?.role !== 'admin') {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -419,9 +415,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/content/:id', isAuthenticated, async (req: any, res) => {
+  app.put('/api/content/:id', authenticate, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id.toString());
       if (user?.role !== 'admin') {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -437,9 +433,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Suggestions
-  app.get('/api/suggestions', isAuthenticated, async (req: any, res) => {
+  app.get('/api/suggestions', authenticate, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id.toString());
       if (user?.role !== 'admin') {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -463,9 +459,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/suggestions/:id/status', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/suggestions/:id/status', authenticate, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id.toString());
       if (user?.role !== 'admin') {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -481,9 +477,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Donations
-  app.get('/api/donations', isAuthenticated, async (req: any, res) => {
+  app.get('/api/donations', authenticate, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id.toString());
       if (user?.role !== 'admin') {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -519,11 +515,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/reviews', isAuthenticated, async (req: any, res) => {
+  app.post('/api/reviews', authenticate, async (req: any, res) => {
     try {
       const reviewData = insertReviewSchema.parse({
         ...req.body,
-        userId: req.user.claims.sub,
+        userId: req.user!.id.toString(),
       });
       const review = await storage.createReview(reviewData);
       res.json(review);
@@ -533,9 +529,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/reviews/:id/approve', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/reviews/:id/approve', authenticate, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id.toString());
       if (user?.role !== 'admin') {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -622,9 +618,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/support/tickets', isAuthenticated, async (req: any, res) => {
+  app.get('/api/support/tickets', authenticate, async (req: any, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      const user = await storage.getUser(req.user!.id.toString());
       if (user?.role !== 'admin') {
         return res.status(403).json({ message: "Admin access required" });
       }

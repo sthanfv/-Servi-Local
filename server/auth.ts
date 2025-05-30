@@ -4,7 +4,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { storage } from './storage';
 import type { User } from '@shared/schema';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_jwt_secret_for_development';
+const JWT_SECRET = process.env.JWT_SECRET || 'temporary_jwt_secret_32_chars_min_ABC123DEF456GHI789';
 const SALT_ROUNDS = 12;
 
 export interface AuthRequest extends Request {
