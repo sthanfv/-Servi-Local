@@ -5,6 +5,8 @@ import connectPgSimple from "connect-pg-simple";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import cors from "cors";
+import { body, validationResult } from "express-validator";
+import { encode } from "html-entities";
 import { storage } from "./storage";
 import { authenticate, requireAdmin, requireProvider, hashPassword, comparePassword, generateToken, type AuthRequest } from "./auth";
 import { insertUserSchema } from "@shared/schema";
@@ -25,16 +27,34 @@ import {
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Configure trust proxy for rate limiting
+  app.set('trust proxy', 1);
+  
   // Security middlewares
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "https://auth.util.repl.co"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "https:"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://auth.util.repl.co", "'unsafe-eval'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:", "https:", "blob:"],
+        connectSrc: ["'self'", "wss:", "ws:"],
+        frameSrc: ["'none'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
       },
     },
+    crossOriginEmbedderPolicy: false,
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true
+    },
+    noSniff: true,
+    frameguard: { action: 'deny' },
+    xssFilter: true,
   }));
 
   app.use(cors({
@@ -44,21 +64,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     credentials: true,
   }));
 
-  // Rate limiting - Ajustado para desarrollo y uso normal
+  // Rate limiting - Configuración mejorada
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: process.env.NODE_ENV === 'development' ? 1000 : 300, // Más permisivo en desarrollo
-    message: "Too many requests from this IP, please try again later.",
+    max: process.env.NODE_ENV === 'development' ? 1000 : 100, // 100 req/15min en producción
+    message: {
+      error: "Too many requests from this IP, please try again later.",
+      retryAfter: "15 minutes"
+    },
     standardHeaders: true,
     legacyHeaders: false,
+    trustProxy: true,
+    keyGenerator: (req) => {
+      return req.ip || req.connection.remoteAddress || 'unknown';
+    },
   });
 
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: process.env.NODE_ENV === 'development' ? 50 : 10, // Más permisivo en desarrollo
-    message: "Too many login attempts, please try again later.",
+    max: process.env.NODE_ENV === 'development' ? 50 : 5, // 5 intentos en producción
+    message: {
+      error: "Too many login attempts, please try again later.",
+      retryAfter: "15 minutes"
+    },
     standardHeaders: true,
     legacyHeaders: false,
+    trustProxy: true,
+    keyGenerator: (req) => {
+      return req.ip || req.connection.remoteAddress || 'unknown';
+    },
+    skipSuccessfulRequests: true,
   });
 
   app.use('/api/', apiLimiter);
@@ -72,14 +107,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     store: new PgSession({
       conString: process.env.DATABASE_URL,
       createTableIfMissing: true,
+      tableName: 'session',
+      schemaName: 'public',
     }),
-    secret: process.env.SESSION_SECRET || 'fallback_session_secret_for_development',
+    secret: process.env.SESSION_SECRET || 'fallback_session_secret_for_development_change_in_production',
+    name: 'servilocal_session',
     resave: false,
     saveUninitialized: false,
+    rolling: true, // Reset expiration on each request
     cookie: {
-      secure: false, // Set to true in production with HTTPS
+      secure: process.env.NODE_ENV === 'production', // HTTPS only in production
       httpOnly: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      sameSite: 'strict', // CSRF protection
     },
   }));
 
@@ -97,8 +137,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     password: z.string(),
   });
 
+  // Validation middleware
+  const validateRegistration = [
+    body('username')
+      .isLength({ min: 3, max: 50 })
+      .matches(/^[a-zA-Z0-9_]+$/)
+      .withMessage('Username must be 3-50 characters and contain only letters, numbers, and underscores'),
+    body('email')
+      .isEmail()
+      .normalizeEmail()
+      .withMessage('Must be a valid email address'),
+    body('password')
+      .isLength({ min: 8, max: 128 })
+      .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+      .withMessage('Password must be 8-128 characters with uppercase, lowercase, number, and special character'),
+    body('fullName')
+      .isLength({ min: 2, max: 100 })
+      .matches(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/)
+      .withMessage('Full name must be 2-100 characters and contain only letters and spaces'),
+    body('phone')
+      .matches(/^\+?[\d\s\-\(\)]{7,15}$/)
+      .withMessage('Phone must be a valid format'),
+  ];
+
+  const validateLogin = [
+    body('username')
+      .isLength({ min: 3, max: 50 })
+      .escape(),
+    body('password')
+      .isLength({ min: 1, max: 128 })
+  ];
+
+  const sanitizeInput = (req: any, res: any, next: any) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        message: 'Invalid input data',
+        errors: errors.array()
+      });
+    }
+    
+    // Sanitize string fields
+    for (const key in req.body) {
+      if (typeof req.body[key] === 'string') {
+        req.body[key] = encode(req.body[key].trim());
+      }
+    }
+    
+    next();
+  };
+
   // POST /api/register - User registration
-  app.post('/api/register', async (req, res) => {
+  app.post('/api/register', validateRegistration, sanitizeInput, async (req, res) => {
     try {
       const validated = registerSchema.parse(req.body);
       
@@ -146,21 +236,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/login - User login
-  app.post('/api/login', async (req, res) => {
+  app.post('/api/login', validateLogin, sanitizeInput, async (req, res) => {
     try {
       const validated = loginSchema.parse(req.body);
       
       // Find user by username
       const user = await storage.getUserByUsername(validated.username);
       if (!user || !user.isActive) {
+        console.warn(`Failed login attempt for user: ${validated.username} from IP: ${req.ip}`);
         return res.status(401).json({ message: 'Invalid credentials' });
       }
 
       // Verify password
       const validPassword = await comparePassword(validated.password, user.password);
       if (!validPassword) {
+        console.warn(`Invalid password for user: ${validated.username} from IP: ${req.ip}`);
         return res.status(401).json({ message: 'Invalid credentials' });
       }
+
+      console.info(`Successful login for user: ${validated.username} from IP: ${req.ip}`);
 
       // Generate JWT token
       const token = generateToken(user.id);
