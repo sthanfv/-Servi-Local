@@ -13,7 +13,7 @@ import {
   faqItems,
   supportTickets,
   type User,
-  type UpsertUser,
+  type InsertUser,
   type Category,
   type InsertCategory,
   type Service,
