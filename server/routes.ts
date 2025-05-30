@@ -44,10 +44,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     credentials: true,
   }));
 
-  // Rate limiting
+  // Rate limiting - Ajustado para desarrollo y uso normal
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
+    max: process.env.NODE_ENV === 'development' ? 1000 : 300, // Más permisivo en desarrollo
     message: "Too many requests from this IP, please try again later.",
     standardHeaders: true,
     legacyHeaders: false,
@@ -55,7 +55,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5, // limit each IP to 5 login attempts per windowMs
+    max: process.env.NODE_ENV === 'development' ? 50 : 10, // Más permisivo en desarrollo
     message: "Too many login attempts, please try again later.",
     standardHeaders: true,
     legacyHeaders: false,
