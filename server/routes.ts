@@ -1,7 +1,11 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { authenticate, requireAdmin, requireProvider, hashPassword, comparePassword, generateToken, type AuthRequest } from "./auth";
+import { insertUserSchema } from "@shared/schema";
+import { z } from "zod";
 import {
   insertCategorySchema,
   insertServiceSchema,
@@ -18,15 +22,148 @@ import {
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth middleware
-  await setupAuth(app);
+  // Session configuration for JWT + Express Sessions
+  const PgSession = connectPgSimple(session);
+  
+  app.use(session({
+    store: new PgSession({
+      conString: process.env.DATABASE_URL,
+      createTableIfMissing: true,
+    }),
+    secret: process.env.SESSION_SECRET || 'fallback_session_secret_for_development',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: false, // Set to true in production with HTTPS
+      httpOnly: true,
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    },
+  }));
 
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  // Authentication routes according to technical documentation
+  const registerSchema = insertUserSchema.pick({
+    username: true,
+    email: true,
+    password: true,
+    fullName: true,
+    phone: true,
+  });
+
+  const loginSchema = z.object({
+    username: z.string(),
+    password: z.string(),
+  });
+
+  // POST /api/register - User registration
+  app.post('/api/register', async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
+      const validated = registerSchema.parse(req.body);
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByUsername(validated.username);
+      if (existingUser) {
+        return res.status(400).json({ message: 'Username already exists' });
+      }
+
+      const existingEmail = await storage.getUserByEmail(validated.email);
+      if (existingEmail) {
+        return res.status(400).json({ message: 'Email already exists' });
+      }
+
+      // Hash password and create user
+      const hashedPassword = await hashPassword(validated.password);
+      const user = await storage.createUser({
+        ...validated,
+        password: hashedPassword,
+      });
+
+      // Generate JWT token
+      const token = generateToken(user.id);
+      
+      // Store session
+      if (req.session) {
+        req.session.userId = user.id;
+      }
+
+      // Don't send password in response
+      const { password, ...userWithoutPassword } = user;
+      
+      res.status(201).json({
+        user: userWithoutPassword,
+        token,
+        message: 'User registered successfully'
+      });
+    } catch (error) {
+      console.error('Registration error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: 'Invalid input data', errors: error.errors });
+      }
+      res.status(500).json({ message: 'Registration failed' });
+    }
+  });
+
+  // POST /api/login - User login
+  app.post('/api/login', async (req, res) => {
+    try {
+      const validated = loginSchema.parse(req.body);
+      
+      // Find user by username
+      const user = await storage.getUserByUsername(validated.username);
+      if (!user || !user.isActive) {
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
+
+      // Verify password
+      const validPassword = await comparePassword(validated.password, user.password);
+      if (!validPassword) {
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
+
+      // Generate JWT token
+      const token = generateToken(user.id);
+      
+      // Store session
+      if (req.session) {
+        req.session.userId = user.id;
+      }
+
+      // Don't send password in response
+      const { password, ...userWithoutPassword } = user;
+      
+      res.json({
+        user: userWithoutPassword,
+        token,
+        message: 'Login successful'
+      });
+    } catch (error) {
+      console.error('Login error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: 'Invalid input data', errors: error.errors });
+      }
+      res.status(500).json({ message: 'Login failed' });
+    }
+  });
+
+  // POST /api/logout - User logout
+  app.post('/api/logout', (req, res) => {
+    if (req.session) {
+      req.session.destroy((err) => {
+        if (err) {
+          return res.status(500).json({ message: 'Logout failed' });
+        }
+        res.clearCookie('connect.sid');
+        res.json({ message: 'Logout successful' });
+      });
+    } else {
+      res.json({ message: 'Logout successful' });
+    }
+  });
+
+  // GET /api/user - Get current user
+  app.get('/api/user', authenticate, async (req: AuthRequest, res) => {
+    try {
+      const { password, ...userWithoutPassword } = req.user!;
+      res.json(userWithoutPassword);
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
@@ -44,7 +181,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/categories', isAuthenticated, async (req: any, res) => {
+  app.post('/api/categories', authenticate, requireAdmin, async (req: AuthRequest, res) => {
     try {
       const user = await storage.getUser(req.user.claims.sub);
       if (user?.role !== 'admin') {
