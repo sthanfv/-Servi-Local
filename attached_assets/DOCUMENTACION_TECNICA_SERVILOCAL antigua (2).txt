@@ -1501,6 +1501,280 @@ Total: 50-150ms
 
 ---
 
+## APIS EXTERNAS E INTEGRACIONES DE TERCEROS
+
+### 🔌 Configuración de APIs y Servicios Externos
+
+#### APIs Implementadas y Configuradas:
+
+##### 1. Base de Datos PostgreSQL (Neon.tech)
+```env
+# Configuración obligatoria
+DATABASE_URL=postgresql://usuario:password@host:puerto/basedatos
+```
+**Funcionalidad:**
+- Almacenamiento principal de todos los datos
+- Sesiones de usuario persistentes
+- Backup automático incluido en Neon
+- Escalabilidad automática
+
+**Configuración en Producción:**
+1. Crear cuenta en Neon.tech (gratis)
+2. Crear nueva base de datos
+3. Copiar DATABASE_URL a variables de entorno
+4. Las migraciones se ejecutan automáticamente
+
+##### 2. Sistema de Autenticación JWT
+```env
+# Secretos obligatorios para seguridad
+SESSION_SECRET=secreto_super_seguro_32_caracteres_minimo
+JWT_SECRET=otro_secreto_jwt_diferente_32_caracteres
+```
+**Funcionalidad:**
+- Autenticación segura de usuarios
+- Sesiones persistentes
+- Tokens de renovación automática
+- Protección contra ataques
+
+##### 3. Sentry (Monitoreo de Errores) - OPCIONAL
+```env
+# Para monitoreo en producción
+SENTRY_DSN=https://xxxxx@sentry.io/xxxxx
+```
+**Funcionalidad:**
+- Captura automática de errores
+- Métricas de rendimiento
+- Alertas en tiempo real
+- Dashboard de salud del sistema
+
+**Configuración:**
+1. Crear cuenta gratuita en Sentry.io
+2. Crear nuevo proyecto Node.js
+3. Copiar DSN a variables de entorno
+4. Sistema funcionará sin Sentry si no se configura
+
+##### 4. Stripe (Pagos Internacionales) - FUTURO
+```env
+# Para pagos con tarjeta
+STRIPE_SECRET_KEY=sk_live_xxxxx
+STRIPE_WEBHOOK_SECRET=whsec_xxxxx
+```
+**Funcionalidad:**
+- Pagos con tarjeta internacional
+- Gestión de suscripciones
+- Facturación automática
+- Cumplimiento PCI DSS
+
+**Configuración:**
+1. Crear cuenta en Stripe.com
+2. Configurar webhook endpoints
+3. Activar métodos de pago deseados
+4. El sistema funciona sin Stripe por ahora
+
+##### 5. PSE Colombia (Pagos Locales) - FUTURO
+```env
+# Para pagos bancarios Colombia
+PSE_API_KEY=pse_live_xxxxx
+PSE_MERCHANT_ID=12345
+```
+**Funcionalidad:**
+- Pagos PSE (bancos colombianos)
+- Integración con bancos locales
+- Confirmación automática
+- Facturación DIAN
+
+##### 6. Email Service (SendGrid/Mailgun) - FUTURO
+```env
+# Para envío de emails
+SENDGRID_API_KEY=SG.xxxxx
+MAILGUN_API_KEY=xxxxx
+```
+**Funcionalidad:**
+- Emails de confirmación
+- Notificaciones de servicios
+- Newsletters
+- Recuperación de contraseñas
+
+### 🔧 Configuración Paso a Paso para Producción
+
+#### Configuraciones OBLIGATORIAS (Sistema no funciona sin estas):
+
+1. **Base de Datos PostgreSQL:**
+   ```bash
+   # En Neon.tech:
+   1. Registrarse gratis
+   2. Crear nueva base de datos
+   3. Copiar connection string
+   4. Agregar a DATABASE_URL en Secrets
+   ```
+
+2. **Secretos de Seguridad:**
+   ```bash
+   # Generar secretos seguros:
+   SESSION_SECRET=$(openssl rand -base64 32)
+   JWT_SECRET=$(openssl rand -base64 32)
+   ```
+
+#### Configuraciones OPCIONALES (Mejoran funcionalidad):
+
+3. **Sentry para Monitoreo:**
+   ```bash
+   # Si quieres monitoreo avanzado:
+   1. Crear cuenta en Sentry.io
+   2. Crear proyecto Node.js
+   3. Agregar SENTRY_DSN a Secrets
+   4. Configurar alertas por email/Slack
+   ```
+
+4. **Email Service:**
+   ```bash
+   # Para funcionalidades de email:
+   1. Elegir SendGrid o Mailgun
+   2. Crear cuenta y obtener API key
+   3. Configurar dominio verificado
+   4. Agregar templates de email
+   ```
+
+### 🌐 Dependencias Externas y Fallbacks
+
+#### APIs con Fallback Automático:
+- **Sentry**: Si no está configurado, los errores se loggean en consola
+- **Email**: Si no está configurado, se simula envío exitoso
+- **Pagos**: Pagos deshabilitados hasta configurar pasarelas
+- **2FA**: Funciona con cualquier app authenticator estándar
+
+#### APIs Sin Fallback (Críticas):
+- **PostgreSQL**: Obligatoria, el sistema no inicia sin ella
+- **Variables de seguridad**: Obligatorias para protección
+
+### 📱 Integraciones de Frontend
+
+#### Google Fonts (CDN):
+```html
+<!-- Ya incluido automáticamente -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+```
+
+#### Lucide Icons (Componentes):
+```typescript
+// Ya configurado en el proyecto
+import { Search, User, Settings } from 'lucide-react';
+```
+
+#### Tailwind CSS (Build Time):
+```bash
+# Procesamiento automático durante build
+npm run build
+```
+
+### 🔒 Configuración de Seguridad para APIs
+
+#### CORS (Cross-Origin Requests):
+```javascript
+// Configurado automáticamente por ambiente
+// Desarrollo: localhost permitido
+// Producción: solo dominio específico
+```
+
+#### Rate Limiting:
+```javascript
+// Implementado para todas las APIs:
+- General: 100 requests/15min
+- Auth: 5 intentos/15min
+- Por usuario: 200 requests/15min
+```
+
+#### Headers de Seguridad:
+```javascript
+// Aplicados automáticamente:
+- Content Security Policy
+- HSTS (HTTPS Strict Transport Security)
+- X-Frame-Options: DENY
+- X-Content-Type-Options: nosniff
+```
+
+### 📊 Monitoreo de APIs
+
+#### Health Checks Automáticos:
+```bash
+# Endpoints de salud:
+GET /api/health - Estado general
+GET /api/health/detailed - Métricas completas (solo admin)
+```
+
+#### Métricas Monitoreadas:
+- Conectividad de base de datos
+- Tiempo de respuesta promedio
+- Errores por minuto
+- Memoria y CPU utilizada
+- Estado de cache interno
+
+### 🚀 Instrucciones de Deploy
+
+#### Variables de Entorno Mínimas:
+```env
+# OBLIGATORIAS - Sistema no funciona sin estas
+DATABASE_URL=postgresql://...
+SESSION_SECRET=secreto_32_caracteres_minimo
+JWT_SECRET=otro_secreto_32_caracteres
+NODE_ENV=production
+
+# OPCIONALES - Mejoran funcionalidad
+SENTRY_DSN=https://...
+SENDGRID_API_KEY=SG....
+STRIPE_SECRET_KEY=sk_live_...
+```
+
+#### Proceso de Deploy en Replit:
+1. **Configurar Secrets**: Agregar todas las variables obligatorias
+2. **Click Deploy**: Usar botón Deploy en header
+3. **Configurar Dominio**: Opcional, dominio personalizado
+4. **Verificar Health**: Comprobar /api/health después del deploy
+5. **Configurar SSL**: Automático en Replit Deployments
+
+#### Post-Deploy Checklist:
+```bash
+✅ Base de datos conectada (/api/health)
+✅ Autenticación funcionando (/api/login)
+✅ Servicios cargando (/api/services)
+✅ Panel admin accesible (/admin)
+✅ SSL certificado activo (https://)
+✅ Logs de errores funcionando
+✅ Backup automático configurado
+```
+
+### 🔍 Troubleshooting de APIs
+
+#### Problemas Comunes y Soluciones:
+
+1. **Database Connection Error:**
+   ```bash
+   # Verificar DATABASE_URL
+   # Comprobar que Neon database esté activa
+   # Revisar firewall/network restrictions
+   ```
+
+2. **Authentication Errors:**
+   ```bash
+   # Verificar JWT_SECRET y SESSION_SECRET
+   # Comprobar que no contengan caracteres especiales
+   # Asegurar longitud mínima de 32 caracteres
+   ```
+
+3. **CORS Errors:**
+   ```bash
+   # Verificar dominio en configuración CORS
+   # Comprobar que NODE_ENV esté configurado
+   # Revisar headers de Origin en requests
+   ```
+
+4. **Rate Limiting Issues:**
+   ```bash
+   # Configurar trust proxy correctamente
+   # Verificar que IP addresses sean detectadas
+   # Ajustar límites para ambiente de desarrollo
+   ```
+
 ## MIGRACIÓN A OTRAS PLATAFORMAS
 
 ### 🚀 Plataformas Recomendadas
